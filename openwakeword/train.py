@@ -698,10 +698,10 @@ if __name__ == '__main__':
         n_current_samples = len(os.listdir(negative_train_output_dir))
         if n_current_samples <= 0.95*config["n_samples"]:
             adversarial_texts = config["custom_negative_phrases"]
-            for target_phrase in config["target_phrase"]:
+            for target_phrase_en in config["target_phrase_en"]:
                 adversarial_texts.extend(generate_adversarial_texts(
-                    input_text=target_phrase,
-                    N=config["n_samples"]//len(config["target_phrase"]),
+                    input_text=target_phrase_en,
+                    N=config["n_samples"]//len(config["target_phrase_en"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
             generate_samples(text=adversarial_texts, max_samples=config["n_samples"]-n_current_samples,
@@ -721,10 +721,10 @@ if __name__ == '__main__':
         n_current_samples = len(os.listdir(negative_test_output_dir))
         if n_current_samples <= 0.95*config["n_samples_val"]:
             adversarial_texts = config["custom_negative_phrases"]
-            for target_phrase in config["target_phrase"]:
+            for target_phrase_en in config["target_phrase_en"]:
                 adversarial_texts.extend(generate_adversarial_texts(
-                    input_text=target_phrase,
-                    N=config["n_samples_val"]//len(config["target_phrase"]),
+                    input_text=target_phrase_en,
+                    N=config["n_samples_val"]//len(config["target_phrase_en"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
             generate_samples(text=adversarial_texts, max_samples=config["n_samples_val"]-n_current_samples,
