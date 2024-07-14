@@ -11,6 +11,21 @@ target_phrase:
 target_phrase_en:
   - "melo"
 
+min_phoneme_count:
+  - 300
+
+noise_scales_train:
+  - 0.333
+
+noise_scales_test:
+  - 0.444
+
+noise_scales_train_en:
+  - 0.98
+
+noise_scales_test_en:
+  - 1.0
+
 # Specific phrases that you do *not* want the model to activate on, outside of those generated automatically via phoneme overlap
 # This can be a good way to reduce false positives if you notice that, in practice, certain words or phrases are problematic
 custom_negative_phrases: []
