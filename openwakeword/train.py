@@ -671,7 +671,8 @@ if __name__ == '__main__':
                 batch_size=config["tts_batch_size"],
                 noise_scales=["noise_scales_train"], noise_scale_ws=config["noise_scales_train"], min_phoneme_count=config["min_phoneme_count"], length_scales=[0.75, 1.0, 1.25],
                 output_dir=positive_train_output_dir, auto_reduce_batch_size=True,
-                file_names=[uuid.uuid4().hex + ".wav" for i in range(config["n_samples"])]
+                file_names=[uuid.uuid4().hex + ".wav" for i in range(config["n_samples"])],
+                model=config["tts_model"]
             )
             torch.cuda.empty_cache()
         else:
@@ -686,7 +687,7 @@ if __name__ == '__main__':
             generate_samples(text=config["target_phrase"], max_samples=config["n_samples_val"]-n_current_samples,
                              batch_size=config["tts_batch_size"],
                              noise_scales=config["noise_scales_test"], noise_scale_ws=config["noise_scales_test"], min_phoneme_count=config["min_phoneme_count"], length_scales=[0.75, 1.0, 1.25],
-                             output_dir=positive_test_output_dir, auto_reduce_batch_size=True)
+                             output_dir=positive_test_output_dir, auto_reduce_batch_size=True, model=config["tts_model"]) 
             torch.cuda.empty_cache()
         else:
             logging.warning(f"Skipping generation of positive clips testing, as ~{config['n_samples_val']} already exist")
@@ -708,7 +709,7 @@ if __name__ == '__main__':
                              batch_size=config["tts_batch_size"]//7,
                              noise_scales=config["noise_scales_train_en"], noise_scale_ws=config["noise_scales_train_en"], length_scales=[0.75, 1.0, 1.25],
                              output_dir=negative_train_output_dir, auto_reduce_batch_size=True,
-                             file_names=[uuid.uuid4().hex + ".wav" for i in range(config["n_samples"])]
+                             file_names=[uuid.uuid4().hex + ".wav" for i in range(config["n_samples"])], model=config["tts_model_en"]
                              )
             torch.cuda.empty_cache()
         else:
@@ -729,7 +730,7 @@ if __name__ == '__main__':
                     include_input_words=0.2))
             generate_samples(text=adversarial_texts, max_samples=config["n_samples_val"]-n_current_samples,
                              batch_size=config["tts_batch_size"]//7,
-                             noise_scales=config["noise_scales_test_en"], noise_scale_ws=config["noise_scales_test_en"], length_scales=[0.75, 1.0, 1.25],
+                             noise_scales=config["noise_scales_test_en"], noise_scale_ws=config["noise_scales_test_en"], length_scales=[0.75, 1.0, 1.25], model=config["tts_model_en"],
                              output_dir=negative_test_output_dir, auto_reduce_batch_size=True)
             torch.cuda.empty_cache()
         else:
