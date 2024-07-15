@@ -6,12 +6,12 @@ model_name: "milo"
 # The target word/phrase to be detected by the model. Adding multiple unique words/phrases will
 # still only train a binary model detection model, but it will activate on any one of the provided words/phrases.
 target_phrase:
-  - "milo"
+  - "milo__"
 
 target_phrase_en:
   - "melo"
 
-min_phoneme_count: 300
+min_phoneme_count: 180 
 
 noise_scales_train:
   - 0.333
