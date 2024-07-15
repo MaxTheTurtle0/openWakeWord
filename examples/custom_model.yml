@@ -25,11 +25,9 @@ noise_scales_train_en:
 noise_scales_test_en:
   - 1.0
 
-tts_model: 
-  - "piper-sample-generator/models/de_DE-mls-medium.pt"
+tts_model: "piper-sample-generator/models/de_DE-mls-medium.pt"
 
-tts_model_en:
-  - "piper-sample-generator/models/en_US-libritts_r-medium.pt"
+tts_model_en: "piper-sample-generator/models/en_US-libritts_r-medium.pt"
 
 # Specific phrases that you do *not* want the model to activate on, outside of those generated automatically via phoneme overlap
 # This can be a good way to reduce false positives if you notice that, in practice, certain words or phrases are problematic

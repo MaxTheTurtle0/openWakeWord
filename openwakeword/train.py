@@ -669,7 +669,7 @@ if __name__ == '__main__':
             generate_samples(
                 text=config["target_phrase"], max_samples=config["n_samples"]-n_current_samples,
                 batch_size=config["tts_batch_size"],
-                noise_scales=["noise_scales_train"], noise_scale_ws=config["noise_scales_train"], min_phoneme_count=config["min_phoneme_count"], length_scales=[0.75, 1.0, 1.25],
+                noise_scales=config["noise_scales_train"], noise_scale_ws=config["noise_scales_train"], min_phoneme_count=config["min_phoneme_count"], length_scales=[0.75, 1.0, 1.25],
                 output_dir=positive_train_output_dir, auto_reduce_batch_size=True,
                 file_names=[uuid.uuid4().hex + ".wav" for i in range(config["n_samples"])],
                 model=config["tts_model"]
