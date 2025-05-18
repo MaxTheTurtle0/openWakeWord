@@ -34,6 +34,19 @@ from speechbrain.processing.signal_processing import reverberate
 import torchaudio
 import mutagen
 import acoustics
+import itertools
+import difflib
+
+from piper_phonemize import (
+    phonemize_espeak,
+    phonemize_codepoints,
+    phoneme_ids_espeak,
+    phoneme_ids_codepoints,
+    get_codepoints_map,
+    get_espeak_map,
+    get_max_phonemes,
+    tashkeel_run,
+)
 
 
 # Load audio clips and structure into clips of the same length
@@ -891,16 +904,57 @@ def trim_mmap(mmap_path):
     # Rename new mmap file to match original
     os.rename(output_file2, mmap_path)
 
+# German
+# Assuming 'wordlists/de_50k.txt' is available in the same directory or path is adjusted
+de_words = [i.split()[0] for i in open("wordlists/de_50k.txt", 'r').readlines()]
+# Pre-compute phonemes for the word list for efficiency
+de_phonemes = [phonemize_espeak(i, "de")[0] for i in tqdm(de_words, desc="Phonemizing German words")]
+
+
+def find_similar_sounding_word(target_word, all_words, all_phonemes, threshold=0.8):
+    """
+    Finds similar sounding words to a target word based on phoneme overlap.
+
+    Args:
+        target_word (str): The word to find similar sounding words for.
+        all_words (list): A list of all possible words to search within.
+        all_phonemes (list): A list of phoneme representations for each word in all_words.
+        threshold (float): The minimum ratio of the longest matching phoneme sequence
+                           to the target word's phoneme sequence length to consider a match.
+
+    Returns:
+        list: A list of similar sounding words.
+    """
+    # Get phonemes for the target word
+    target_phonemes = phonemize_espeak(target_word, "de")[0]
+
+    # Use difflib.find_longest_match to find phoneme overlap
+    similar_words = []
+    for word, phonemes in zip(all_words, all_phonemes):
+        # Exclude the target word itself and words with identical phonemes
+        if word == target_word or target_phonemes == phonemes:
+            continue
+        match = difflib.SequenceMatcher(None, target_phonemes, phonemes).find_longest_match()
+        if len(target_phonemes) > 0 and match.size / len(target_phonemes) >= threshold:
+            similar_words.append(word)
+
+    return similar_words
+
 
 # Generate words that sound similar ("adversarial") to the input phrase using phoneme overlap
-def generate_adversarial_texts(input_text: str, N: int, include_partial_phrase: float = 0, include_input_words: float = 0):
+def generate_adversarial_texts_de(
+    input_text: str,
+    N: int,
+    include_partial_phrase: float = 0,
+    include_input_words: float = 0,
+    similarity_threshold: float = 0.45 # Added parameter for similarity threshold
+):
     """
-    Generate adversarial words and phrases based on phoneme overlap.
-    Currently only works for english texts.
+    Generate adversarial words and phrases based on phoneme overlap for German texts.
     Note that homophones are excluded, as this wouldn't actually be an adversarial example for the input text.
 
     Args:
-        input_text (str): The target text for adversarial phrases
+        input_text (str): The target text for adversarial phrases in German.
         N (int): The total number of adversarial texts to return. Uses sampling,
                  so not all possible combinations will be included and some duplicates
                  may be present.
@@ -911,105 +965,55 @@ def generate_adversarial_texts(input_text: str, N: int, include_partial_phrase: 
                                      if the `input_text` was "ok google", then setting this value > 0.0
                                      will allow for adversarial texts like "ok noodle", versus the word "ok"
                                      never being present in the adversarial texts.
+        similarity_threshold (float): The threshold for considering words as similar sounding
+                                      (passed to find_similar_sounding_word).
 
     Returns:
         list: A list of strings corresponding to words and phrases that are phonetically similar (but not identical)
-              to the input text.
+              to the input text in German.
     """
-    # Get phonemes for english vowels (CMUDICT labels)
-    vowel_phones = ["AA", "AE", "AH", "AO", "AW", "AX", "AXR", "AY", "EH", "ER", "EY", "IH", "IX", "IY", "OW", "OY", "UH", "UW", "UX"]
-
-    word_phones = []
-    input_text_phones = [pronouncing.phones_for_word(i) for i in input_text.split()]
-
-    # Download phonemizer model for OOV words, if needed
-    if [] in input_text_phones:
-        phonemizer_mdl_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "en_us_cmudict_forward.pt")
-        if not os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")):
-            os.mkdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources"))
-        if not os.path.exists(phonemizer_mdl_path):
-            logging.warning("Downloading phonemizer model from DeepPhonemizer library...")
-            import requests
-            file_url = "https://public-asai-dl-models.s3.eu-central-1.amazonaws.com/DeepPhonemizer/en_us_cmudict_forward.pt"
-            r = requests.get(file_url, stream=True)
-            with open(phonemizer_mdl_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=2048):
-                    if chunk:
-                        f.write(chunk)
-
-        # Create phonemizer object
-        from dp.phonemizer import Phonemizer
-        phonemizer = Phonemizer.from_checkpoint(phonemizer_mdl_path)
-
-    for phones, word in zip(input_text_phones, input_text.split()):
-        if phones != []:
-            word_phones.extend(phones)
-        elif phones == []:
-            logging.warning(f"The word '{word}' was not found in the pronunciation dictionary! "
-                            "Using the DeepPhonemizer library to predict the phonemes.")
-            phones = phonemizer(word, lang='en_us')
-            logging.warning(f"Phones for '{word}': {phones}")
-            word_phones.append(re.sub(r"[\]|\[]", "", re.sub(r"\]\[", " ", phones)))
-        elif isinstance(phones[0], list):
-            logging.warning(f"There are multiple pronunciations for the word '{word}'.")
-            word_phones.append(phones[0])
-
-    # add all possible lexical stresses to vowels
-    word_phones = [re.sub('|'.join(vowel_phones), lambda x: str(x.group(0)) + '[0|1|2]', re.sub(r'\d+', '', i)) for i in word_phones]
-
+    input_words = input_text.split()
     adversarial_phrases = []
-    for phones, word in zip(word_phones, input_text.split()):
-        query_exps = []
-        phones = phones.split()
-        adversarial_words = []
-        if len(phones) <= 2:
-            query_exps.append(" ".join(phones))
+
+    for word in input_words:
+        similar_words = find_similar_sounding_word(word, de_words, de_phonemes, threshold=similarity_threshold)
+        if similar_words:
+            adversarial_phrases.append(similar_words)
         else:
-            query_exps.extend(phoneme_replacement(phones, max_replace=max(0, len(phones)-2), replace_char="(.){1,3}"))
-
-        for query in query_exps:
-            matches = pronouncing.search(query)
-            matches_phones = [pronouncing.phones_for_word(i)[0] for i in matches]
-            allowed_matches = [i for i, j in zip(matches, matches_phones) if j != phones]
-            adversarial_words.extend([i for i in allowed_matches if word.lower() != i])
-
-        if adversarial_words != []:
-            adversarial_phrases.append(adversarial_words)
+            # If no similar sounding words are found, just use the original word
+            logging.warning(f"No similar sounding words found for '{word}'. Using the original word.")
+            adversarial_phrases.append([word])
 
     # Build combinations for final output
     adversarial_texts = []
     for i in range(N):
         txts = []
-        for j, k in zip(adversarial_phrases, input_text.split()):
-            if np.random.random() > (1 - include_input_words):
+        for j, k in zip(adversarial_phrases, input_words):
+            if np.random.random() > (1 - include_input_words) and k in j:
                 txts.append(k)
             else:
-                txts.append(np.random.choice(j))
+                 # Ensure that the chosen word is not the original word if include_input_words is not 1.0
+                 # This prevents the original word from being selected if we are trying to generate
+                 # adversarial examples and include_input_words is less than 1.0.
+                choices = [w for w in j if (include_input_words == 1.0 or w != k)]
+                if choices:
+                    txts.append(np.random.choice(choices))
+                else:
+                    # If no valid adversarial choices, fall back to the original word
+                    txts.append(k)
 
-        if include_partial_phrase is not None and len(input_text.split()) > 1 and np.random.random() <= include_partial_phrase:
-            n_words = np.random.randint(1, len(input_text.split())+1)
-            adversarial_texts.append(" ".join(np.random.choice(txts, size=n_words, replace=False)))
+
+        if include_partial_phrase is not None and len(input_words) > 1 and np.random.random() <= include_partial_phrase:
+            n_words = np.random.randint(1, len(input_words) + 1)
+            # Ensure the chosen words are unique if n_words is less than the total number of words
+            if n_words < len(txts):
+                 adversarial_texts.append(" ".join(np.random.choice(txts, size=n_words, replace=False)))
+            else:
+                 adversarial_texts.append(" ".join(txts))
         else:
             adversarial_texts.append(" ".join(txts))
 
     # Remove any exact matches to input phrase
-    adversarial_texts = [i for i in adversarial_texts if i != input_text]
+    adversarial_texts = [i for i in adversarial_texts if i.lower() != input_text.lower()]
 
     return adversarial_texts
-
-
-def phoneme_replacement(input_chars, max_replace, replace_char='"(.){1,3}"'):
-    results = []
-    chars = list(input_chars)
-
-    # iterate over the number of characters to replace (1 to max_replace)
-    for r in range(1, max_replace+1):
-        # get all combinations for a fixed r
-        comb = itertools.combinations(range(len(chars)), r)
-        for indices in comb:
-            chars_copy = chars.copy()
-            for i in indices:
-                chars_copy[i] = replace_char
-            results.append(' '.join(chars_copy))
-
-    return results
