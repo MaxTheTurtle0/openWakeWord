@@ -8,9 +8,6 @@ model_name: "milo"
 target_phrase:
   - "milo__"
 
-target_phrase_en:
-  - "melo"
-
 min_phoneme_count: 180 
 
 noise_scales_train:
