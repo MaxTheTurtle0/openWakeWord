@@ -722,9 +722,9 @@ if __name__ == '__main__':
         n_current_samples = len(os.listdir(negative_test_output_dir))
         if n_current_samples <= 0.95*config["n_samples_val"]:
             adversarial_texts = config["custom_negative_phrases"]
-            for target_phrase_en in config["target_phrase"]:
+            for target_phrase in config["target_phrase"]:
                 adversarial_texts.extend(generate_adversarial_texts(
-                    input_text=target_phrase_en,
+                    input_text=target_phrase,
                     N=config["n_samples_val"]//len(config["target_phrase"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
